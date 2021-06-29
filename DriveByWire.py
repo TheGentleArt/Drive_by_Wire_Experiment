@@ -1,6 +1,6 @@
 #J.Williams
 #This script intends to move a stepper motor. It uses a RPi, a DRV8825 Stepper Motor Driver, a breadboard, a NEMA 17 Stepper Motor, a ADS1115 Analog to Digital Converter, and a power supply for now.
-#A large portion of getting the stepper motor working correctly was achieved via watching a tutorial from ‘rdagger68’ on Youtube titled ‘Raspberry Pi Stepper Motor Tutorial’.
+#A large portion of getting the stepper motor working correctly was achieved via watching a tutorial from \u2018rdagger68\u2019 on Youtube titled \u2018Raspberry Pi Stepper Motor Tutorial\u2019.
 #Another portion of getting the ADS1115 to work correctly was done by watching a tutorial from 'Ravivarman Rajendiran' on Youtube titled 'Analog Sensors Interfacing with Raspberry Pi using ADS1115 ADC. Step by step guide.'
 
 
@@ -71,14 +71,14 @@
 #####Library Imports
 import time
 from time import sleep
-import timeit
+#import timeit
 import RPi.GPIO as GPIO
 import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 import board
 import busio
 import math
-import numpy as np
+#import numpy as np
 #####
 
 
@@ -139,7 +139,7 @@ elif STEP_MODE=='1/16':
 elif STEP_MODE=='1/32':
     SPR=32*SPR_FullStep
     delay=delay_FullStep/32
-elif STEPMODE=='1/64':
+elif STEP_MODE=='1/64':
     SPR=64*SPR_FullStep
     delay=delay_FullStep/64
 #Now SPR (Steps per revolution) is set, as well as the delay
@@ -166,7 +166,10 @@ GPIO.output(SLEEP,1) #enable stepper motor
 
 ###Program###
 
-def ax_spd_sens_v_to_veh_spd(axle_spd_sens_volt):
+#Program will be written to move stepper motor forward (open throttle) if throttle is not already opened max
+#also only if the desired speed is higher than actual speed, and also only if acceleration rate is not too high.
+
+def ax_spd_sens_v_to_veh_spd(axle_spd_sens_volt): #convert axle speed sensor voltage to vehicle speed in mph
     axle_speed_sensor_v_in = 3.3 #Sensor Supply Voltage
     axle_spd_sens_volt_per_rpm = axle_speed_sensor_v_in/5500 #volts per 5500 rpm (25mph with 18" tires)
     axle_input_rpm = axle_spd_sens_volt/axle_spd_sens_volt_per_rpm
@@ -179,24 +182,19 @@ def ax_spd_sens_v_to_veh_spd(axle_spd_sens_volt):
     veh_spd = veh_spd_inchpermin*((60/1)*(1/12)*(1/5280))
     if veh_spd < 0:
         veh_spd = 0
-    else:
-        pass
     return veh_spd
     
-def pps_v_to_des_spd(pedal_pos_sens_voltage):
-    pps_v_max = 3.3 #3.3V max voltage for Pedal Position Sensor
+def pps_v_to_des_spd(pedal_pos_sens_voltage): #convert pedal position sensor voltage to desired speed, in mph
+    pps_v_max = 3.3 #3.3V max voltage for Pedal Position Sensor (hpc is 5V? need to confirm)
     des_spd = (pedal_pos_sens_voltage/pps_v_max)*cruise_spd
     if des_spd < 0:
         des_spd = 0
-    else:
-        pass
     return des_spd
 
-def tps_v_to_deg_throttle(tps_voltage):
+def tps_v_to_deg_throttle(tps_voltage): #convert throttle position sensor voltage to deg of opening
     tps_v_in = 5 #volts --- Input either 3.3 or 5. On Vehicle, ECU delivers 5 V
     deg_throttle_min = 0
     deg_throttle_max = 80 #may be 82, see variation here from throttle body to throttle body
-    
     if tps_v_in == 3.3: #3.3V Input to Throttle Body
         tps_v_min = 0.41 #Fully Closed throttle signal reading
         tps_v_max = 2.53 #Fully Open Throttle signal reading
@@ -208,101 +206,81 @@ def tps_v_to_deg_throttle(tps_voltage):
     
     if tps_voltage < tps_v_min: #in case tps signal is slightly lower from throttle body, round to tps_v_min for now
         tps_voltage = tps_v_min
-    else:
-        pass
-    if tps_voltage > tps_v_max: #in case tps signal is slightly higher from throttle body to throttle body, round to tps_v_max value for now
+    elif tps_voltage > tps_v_max: #in case tps signal is slightly higher from throttle body to throttle body, round to tps_v_max value for now
         tps_voltage = tps_v_max
-    else:
-        pass
     
     deg_throttle = 0+(tps_voltage-tps_v_min)*(deg_throttle_max-deg_throttle_min)/(tps_v_max-tps_v_min) #linear interpolation
     if deg_throttle == -0: #was seeing negative zero sometimes, did not want to see negative zero. did not want to use abs() in case it goes below negative zero I would want to see it in testing.
         deg_throttle = 0
-    else:
-        pass
     
     return deg_throttle
 
 
-#the following two lines are only required for reporting the actual degree moved
-#SPD=SPR/360 #Steps per degree
-#DPS=1/SPD #degrees per step - note this is already adjusted for microstepping
-
-#$% believe I can remove this line -- act_deg=0 #say throttle always at 0 deg when starting program, should be accurate if stepper motor was not holding torque before program runs (throttle return spring pulls closed)
 cruise_spd = 12 #desired cruising speed in mph
-
+accel_rate_cap=2.5 #mph/s --- This is the maximum acceleration rate desired. If going beyond this, throttle should be limited
 sleep(0.1) #wait some time to be sure sleep pin is activated
 
 #enter a forever while loop, until 'CTRL+c' keyboard interrupt occurs, then cleanup GPIO pins
 try:
-    itr = 0 #counter of iterations of while loop below
-    itr_reset_count = 80 #number of iterations before iterations reset, also controls how often print to screen
-    veh_spd_list = [] #creates an empty list of vehicle speeds, to be used later to find average accel rate
+    accel_rate=0 # setting initial acceleration rate, in mph/s, set to 0 until enough data to change
+    itr = 0 #counter of iterations of while loop below, setting to 0 initially
+    print_itr_reset_count = 80 #number of iterations before iterations reset for print loop, controls how often values print to screen, if that section of code not commented out
     mov_avg_itr_window=120
+    veh_spd_list = [] #creates an empty list of vehicle speeds, to be used later to find average accel rate
     time_list=[] #creates an empty list of times, to be used later for caclulating accel rates
+
     while True:
+        #get the current values of the sensors, and convert to useful numbers
         act_spd = round(ax_spd_sens_v_to_veh_spd(axle_spd_sens.voltage),3)#gets voltage reading from axle input shaft speed sensor and converts to vehicle speed in mph
         des_spd = round(pps_v_to_des_spd(pps.voltage),2) #Converts voltage reading to desired vehicle speed in mph
-#$%believe can remove this line         des_deg=des_spd*80/12 ###need to find des_deg until can use TPS input
-        tps_deg = tps_v_to_deg_throttle(tps.voltage) #throttle opening in degrees
-                
-#$% believe can remove this line        if act_deg<0:
-#$% believe can remove this line            act_deg=0
-#$% believe can remove this line        else:
-#$% believe can remove this line            pass
+        tps_deg = tps_v_to_deg_throttle(tps.voltage) #throttle opening in degrees, used to determine if throttle already at max/min limits before moving stepper motor further             
         
-        #Add the current speed to the speed list, then remove the oldest item in the list.
-        #if program has just started and list size is small, keep oldest item in list
+        
+        #Calculate acceleration rate (the time period is controlled by the iterations 'mov_avg_itr_window' size now, but can change to wait for difference to be over some value...
+        #Add the current speed to the speed list, then remove the oldest item in the list once the length of the list gets long enough
         veh_spd_list.append(act_spd) 
         if len(veh_spd_list) > mov_avg_itr_window: 
             veh_spd_list=veh_spd_list[1:]
-        else:
-            pass
         #Similarly to above speed, do so with time as well.
-        time_list.append(timeit.default_timer()) #add current time to time list
-#         if len(time_list) > mov_avg_itr_window:
-#             time_old=time_list[0]
-#             time_list=time_list-time_old #subtracts oldest time to keep time list starting with 0 always
-#             time_list=time_list[1:] #remove oldest time
-#         else:
-#             pass
-    #$% The above is having issues, because a list cannot be subtracted from. May try to use numpy arrays instead?
-        
-
-        
-        #this next if statement for testing program only
-        if itr >= itr_reset_count: #print desired and actual throttle position once every 75 iterations (to make easier to read) (modulo)
-            print("tps_deg:",tps_deg,"deg  ","act_spd:",act_spd,"Des_veh_spd:",des_spd)
-#             print(time_list)
-            itr = 0 #reset iterations
-        else:
-            pass
-        
-        #if statement for moving stepper motor
-        if des_spd>act_spd and tps_deg<80: #steps motor forward or backward by 1 step (or does nothing if delta beteen des_deg & act_deg are less than the degrees per step, as to eliminate cycling back and forth 1 step constantly)
+        time_list.append(time.perf_counter()) #add current time to time list
+        if len(time_list) > mov_avg_itr_window:
+            time_list = time_list[1:] #remove the oldest time in list        
+        #calculate accel rate, in mph
+        if len(time_list)>5: #need to change this to work with window size later, or base on calculated elapsed time
+            accel_rate=(veh_spd_list[len(veh_spd_list)-1]-veh_spd_list[0])/(time_list[len(time_list)-1]-time_list[0])
+#still need to: look at accel_rate to ensure this is accurate, make sure all lists are same size, etc.
+              
+        #This section for moving stepper motor --- steps motor forward or backward by 1 step (or does nothing if delta beteen des_deg & act_deg are less than the degrees per step, as to eliminate cycling back and forth 1 step constantly)
+        if des_spd>act_spd and tps_deg<80 and accel_rate<accel_rate_cap:  #want to go faster, not hitting max throttle or accel rate cap
             GPIO.output(DIR,CW)
             GPIO.output(STEP,GPIO.HIGH)
             GPIO.output(STEP,GPIO.LOW)
             #act_deg=round(act_deg+1/SPD,2)
             sleep(delay)
-        elif des_spd<act_spd and tps_deg>0:
+        elif des_spd>act_spd and tps_deg>0 and accel_rate>accel_rate_cap: #want to go faster, but hitting acccel rate cap
+            GPIO.output(DIR,CCW)
+            GPIO.output(STEP,GPIO.HIGH)
+            GPIO.output(STEP,GPIO.LOW)
+            #act_deg=round(act_deg-1/SPD,2)
+        elif des_spd<act_spd and tps_deg>0: #vehicle going faster than desired, close throttle
             GPIO.output(DIR,CCW)
             GPIO.output(STEP,GPIO.HIGH)
             GPIO.output(STEP,GPIO.LOW)
             #act_deg=round(act_deg-1/SPD,2)
             sleep(delay)
-        else:
-            pass
+
         
         itr+=1 #add 1 to while loop iteration counter
         
-        #axle_rpm=axle_spd_sens.voltage/axle_spd_sens_volt_per_rpm
-        #act_spd=ax_rpm_to_veh_spd(axle_rpm)
-        
-        
+                 
+        #this next if statement/section for testing program only
+        #may need to change above itr line or reset if removing this section
+        if itr >= print_itr_reset_count: #print desired and actual throttle position once every 75 iterations (to make easier to read) (modulo)
+            print("tps_deg:",tps_deg,"deg  ","act_spd:",act_spd,"Des_veh_spd:",des_spd,"  accel_rate:",accel_rate," mph/s")
+            itr = 0 #reset iterations       
 
 except KeyboardInterrupt:
     GPIO.output(SLEEP,GPIO.LOW) #disable stepper motor (to keep from getting hot unneccesarily)
     GPIO.cleanup() #reset GPIO pins to inputs to protect against shorting accidentally
     print("GPIO pins cleaned up")
-#Perhaps limit the amount of throttle by linkingthe throttle 0-max to position of pedal (0-max), then once reaching 1/2 or 3/4 of desired speed, then ramp down.
+#Perhaps limit the amount of throttle by linking the throttle 0-max to position of pedal (0-max), then once reaching 1/2 or 3/4 of desired speed, then ramp down. Probably can control via PI/PID control similar though
