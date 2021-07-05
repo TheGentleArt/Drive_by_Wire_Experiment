@@ -114,7 +114,7 @@ RESOLUTION={'Full': (0,0,0),
             '1/32': (1,0,1),
             '1/64': (1,1,1)}
 
-STEP_MODE='1/8' #Motor Stepping Mode. 'Full','Half','1/4',1/8','1/16','1/32',or '1/64'
+STEP_MODE='Half' #Motor Stepping Mode. 'Full','Half','1/4',1/8','1/16','1/32',or '1/64'
 CW=1 #Clockwise rotation
 CCW=0 #Counterclockwise rotation
 SPR_FullStep=int(360/Step_deg) #Steps per revolution ---may round and not be exact but could not get to work as float last i tried
@@ -167,8 +167,10 @@ GPIO.output(SLEEP,1) #enable stepper motor
 ###Program###
 
 #Program will be written to move stepper motor forward (open throttle) if throttle is not already opened max
-#also only if the desired speed is higher than actual speed, and also only if acceleration rate is not too high.
+#Also limited to open only if the desired speed is higher than actual speed, and only if acceleration rate is not too high
+#Likewise, will close if actual speed higher than desired, unless throttle fully closed already
 
+#Functions
 def ax_spd_sens_v_to_veh_spd(axle_spd_sens_volt): #convert axle speed sensor voltage to vehicle speed in mph
     axle_speed_sensor_v_in = 3.3 #Sensor Supply Voltage
     axle_spd_sens_volt_per_rpm = axle_speed_sensor_v_in/5500 #volts per 5500 rpm (25mph with 18" tires)
@@ -214,7 +216,7 @@ def tps_v_to_deg_throttle(tps_voltage): #convert throttle position sensor voltag
         deg_throttle = 0
     
     return deg_throttle
-
+#End of functions
 
 cruise_spd = 12 #desired cruising speed in mph
 accel_rate_cap=2.5 #mph/s --- This is the maximum acceleration rate desired. If going beyond this, throttle should be limited
@@ -224,8 +226,8 @@ sleep(0.1) #wait some time to be sure sleep pin is activated
 try:
     accel_rate=0 # setting initial acceleration rate, in mph/s, set to 0 until enough data to change
     itr = 0 #counter of iterations of while loop below, setting to 0 initially
-    print_itr_reset_count = 80 #number of iterations before iterations reset for print loop, controls how often values print to screen, if that section of code not commented out
-    mov_avg_itr_window=120
+    print_itr_reset_count = 25 #number of iterations before iterations reset for print loop, controls how often values print to screen, if that section of code not commented out
+    mov_avg_itr_window=25
     veh_spd_list = [] #creates an empty list of vehicle speeds, to be used later to find average accel rate
     time_list=[] #creates an empty list of times, to be used later for caclulating accel rates
 
@@ -237,18 +239,21 @@ try:
         
         
         #Calculate acceleration rate (the time period is controlled by the iterations 'mov_avg_itr_window' size now, but can change to wait for difference to be over some value...
-        #Add the current speed to the speed list, then remove the oldest item in the list once the length of the list gets long enough
-        veh_spd_list.append(act_spd) 
-        if len(veh_spd_list) > mov_avg_itr_window: 
-            veh_spd_list=veh_spd_list[1:]
-        #Similarly to above speed, do so with time as well.
+        veh_spd_list.append(act_spd)  #add current vehicle speed to vehicle speed list
         time_list.append(time.perf_counter()) #add current time to time list
-        if len(time_list) > mov_avg_itr_window:
+        
+        #not sure if this is needed...is it worth it?
+#         if len(veh_spd_list) != len(time_list): #warn if lists are not equal length 
+#             print("vehicle speed list length does not match time list length")
+#             break
+        
+    if len(veh_spd_list) >= mov_avg_itr_window:  #allow list length to build before removing old data
+            veh_spd_list=veh_spd_list[1:] #remove the oldest speed in list
             time_list = time_list[1:] #remove the oldest time in list        
-        #calculate accel rate, in mph
-        if len(time_list)>5: #need to change this to work with window size later, or base on calculated elapsed time
-            accel_rate=(veh_spd_list[len(veh_spd_list)-1]-veh_spd_list[0])/(time_list[len(time_list)-1]-time_list[0])
-#still need to: look at accel_rate to ensure this is accurate, make sure all lists are same size, etc.
+            accel_rate=(veh_spd_list[-1]-veh_spd_list[0])/(time_list[-1]-time_list[0]) #calculate accel rate from oldest and newest speed and time values in lists
+     # confirmed accel rate calculated correctly, but need to look into the time delta of this.
+     # may want to have statement to only calculate if time difference is a certain delta or greater? perhaps 5 Hz         
+              
               
         #This section for moving stepper motor --- steps motor forward or backward by 1 step (or does nothing if delta beteen des_deg & act_deg are less than the degrees per step, as to eliminate cycling back and forth 1 step constantly)
         if des_spd>act_spd and tps_deg<80 and accel_rate<accel_rate_cap:  #want to go faster, not hitting max throttle or accel rate cap
@@ -272,12 +277,21 @@ try:
         
         itr+=1 #add 1 to while loop iteration counter
         
+        
+#         #This next porton for testing only
+#         print("speeds:",veh_spd_list[0:4],"...",veh_spd_list[-4:])
+#         print("time:",time_list[0:4],"...",time_list[-4:])
+#         print("accel_rate:",accel_rate)
+#         print("")
+#         if len(time_list) > 5:
+#                print("time_delta:",(time_list[-1]-time_list[-2]))
                  
-        #this next if statement/section for testing program only
-        #may need to change above itr line or reset if removing this section
-        if itr >= print_itr_reset_count: #print desired and actual throttle position once every 75 iterations (to make easier to read) (modulo)
-            print("tps_deg:",tps_deg,"deg  ","act_spd:",act_spd,"Des_veh_spd:",des_spd,"  accel_rate:",accel_rate," mph/s")
-            itr = 0 #reset iterations       
+#         #this next if statement/section for testing program only
+#         #may need to change above itr line or reset if removing this section
+#         if itr >= print_itr_reset_count: #print desired and actual throttle position once every 75 iterations (to make easier to read) (modulo)
+#             print("tps_deg:",tps_deg,"deg  ","act_spd:",act_spd,"Des_veh_spd:",des_spd,"  accel_rate:",accel_rate," mph/s")
+#             itr = 0 #reset iterations       
+
 
 except KeyboardInterrupt:
     GPIO.output(SLEEP,GPIO.LOW) #disable stepper motor (to keep from getting hot unneccesarily)
