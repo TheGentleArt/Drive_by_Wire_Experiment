@@ -1,6 +1,6 @@
 #J.Williams
 #This script intends to move a stepper motor. It uses a RPi, a DRV8825 Stepper Motor Driver, a breadboard, a NEMA 17 Stepper Motor, a ADS1115 Analog to Digital Converter, and a power supply for now.
-#A large portion of getting the stepper motor working correctly was achieved via watching a tutorial from \u2018rdagger68\u2019 on Youtube titled \u2018Raspberry Pi Stepper Motor Tutorial\u2019.
+#A large portion of getting the stepper motor working correctly was achieved via watching a tutorial from ‘rdagger68’ on Youtube titled ‘Raspberry Pi Stepper Motor Tutorial’.
 #Another portion of getting the ADS1115 to work correctly was done by watching a tutorial from 'Ravivarman Rajendiran' on Youtube titled 'Analog Sensors Interfacing with Raspberry Pi using ADS1115 ADC. Step by step guide.'
 
 
@@ -20,18 +20,18 @@
     #M0> (Optional) Pi GPIO 14 (Physical Pin 8)    (Without, operates in Full Step mode)
     #M1> (Optional) Pi GPIO 15 (Physical Pin 10)    (Without, operates in Full Step mode)
     #M2> (Optional) Pi GPIO 18 (Physical Pin 12)    (Without, operates in Full Step mode)
-    #RESET>Pi 3.3V+ (Supposedly DRV8825 will not operate if this is not pulled to HIGH position)
-    #SLEEP>Pi GPIO 17 (Physical Pin 11) (Could also be placed on 3.3V+ pin, but would always leave stepper motor engaged, which may result in unnecessary power draw)
-    #STEP>Pi GPIO 21 (Physical Pin 40) (IIRC when pulsed, tells motor to take one step)
-    #DIR>Pi GPIO20 (Physical Pin 38)
-    #VMOT>Power Supply 12V+ (Be careful connecting anything over 3.3V as this may damage the Pi) (Also note that a 100 uF capacitor was used across the VMOT/GND_MOT pins in case of voltage spike issues)
-    #GND_MOT>Power Supply 12V- (also connect to GND LOGIC Pin just in case the other ground circuit is bad)
+    #RESET> Pi 3.3V+ (Supposedly DRV8825 will not operate if this is not pulled to HIGH position)
+    #SLEEP> Pi GPIO 17 (Physical Pin 11) (Could also be placed on 3.3V+ pin, but would always leave stepper motor engaged, which may result in unnecessary power draw)
+    #STEP> Pi GPIO 21 (Physical Pin 40) (IIRC when pulsed, tells motor to take one step)
+    #DIR> Pi GPIO20 (Physical Pin 38)
+    #VMOT> Power Supply 12V+ (Be careful connecting anything over 3.3V as this may damage the Pi) (Also note that a 100 uF capacitor was used across the VMOT/GND_MOT pins in case of voltage spike issues)
+    #GND_MOT> Power Supply 12V- (also connect to GND LOGIC Pin just in case the other ground circuit is bad)
     #B2> Motor Pole (Pair with B1) (Do not connect until DRV8825 Pot is adjusted)
     #B1> Motor Pole (Pair with B2) (Do not connect until DRV8825 Pot is adjusted)
     #A1> Motor Pole (Pair with A2) (Do not connect until DRV8825 Pot is adjusted)
     #A2> Motor Pole (Pair with A1) (Do not connect until DRV8825 Pot is adjusted)
     #FAULT> Not Used
-    #GND_LOGIC>Pi GND (Physical Pin 39) (also connect to GND_MOT Pin just incase other ground circuit is bad)
+    #GND_LOGIC> Pi GND (Physical Pin 39) (also connect to GND_MOT Pin just incase other ground circuit is bad)
 #####
 
 
@@ -40,7 +40,7 @@
     #Motor Ground tied to the power supply ground (negative terminal)
     #VMOT tied to the power supply (+ terminal)(Do NOT connect the power supply (+) to anything but the VMOT pin on the DRV8825, as this will be using more voltage than the Pi can handle and will damage it.)
     #100 uF capacitor used across the VMOT and GND pins for the DRV8825. This is done to have a capacitor in parallel so that any voltage spikes will be 'absorbed' by the capacitor.
-    #SLEEP pin on the DRV8825 is connected to GPIO pin 17 on Pi. (Can cannect this to 3.3V+pin if do not need to put the motor to sleep when not turning (pedal not pressed) if want to save power.)
+    #SLEEP pin on the DRV8825 is connected to GPIO pin 17 on Pi. (Can connect this to 3.3V (+) pin if do not need to put the motor to sleep when not turning (pedal not pressed) if want to save power.)
     #RESET Pin of DRV8825 to 3.3V (+)
     #STEP Pin to GPIO 21 of Pi
     #DIR Pin to GPIO 20 of Pi
@@ -52,6 +52,10 @@
     #Once the voltage is regulated properly, ensure power supply is off and connect one pole pair of motor to A1 and A2, and the other to B1/B2 of DRV8825. If unsure which are paired, place an LED across leads with no power connected and turn motor by hand. If lights up, they are paired.
     #
     #The M0,M1,and M2 pins on the DRV8825 are used to change the stepping mode. With the default of these pins being low, full step is used. However, can have microstepping if using the pins.
+    #
+    #The HPC pedal setup was done by connecting wires to the Delphi 6 pin connector, filling the A, B, and C terminals.
+    #Believe this is a Mouser PN 829-12162261 connector
+    #Pin A(F) is signal out, pin B(E) is ground, and pin C(D) is 5V in.
 #####
     
 #ADS1115 Pin Layout ---(and Placement)
@@ -83,16 +87,16 @@ import math
 
 
 
-#####ADS1115 chan.voltage input code:
+#####ADS1115 channel voltage input code (use 'channel_name.voltage' to get voltage):
 #Create the I2C bus
-i2c=busio.I2C(board.SCL, board.SDA)
+i2c = busio.I2C(board.SCL, board.SDA)
 #Create the ADC object using the I2C bus
-ads=ADS.ADS1115(i2c)
-ads.gain=1 #GAIN
+ads = ADS.ADS1115(i2c)
+ads.gain = 1 #GAIN
 #Create single ended input on channel 0 (A0)
-pps=AnalogIn(ads, ADS.P0) #Pedal Position Sensor
-axle_spd_sens=AnalogIn(ads, ADS.P1) #Axle Shaft Speed Sensor
-tps=AnalogIn(ads, ADS.P2) #Throttle Position Sensor
+pps = AnalogIn(ads, ADS.P0) #Pedal Position Sensor
+axle_spd_sens = AnalogIn(ads, ADS.P1) #Axle Shaft Speed Sensor
+tps = AnalogIn(ads, ADS.P2) #Throttle Position Sensor
 #####
 
 
@@ -101,65 +105,65 @@ tps=AnalogIn(ads, ADS.P2) #Throttle Position Sensor
 
 #Motor Info
 #NEMA17 Stepper Motor
-Step_deg=1.8 #degrees for each step
+Step_deg = 1.8 #degrees for each step
 
 
 ###Setting up Microstepping---Only input to adjust here is "STEP_MODE" variable
 #Microstepping Resolution Setup for DRV8825 (From DRV8825 datasheet)
-RESOLUTION={'Full': (0,0,0),
-            'Half': (1,0,0),
-            '1/4':  (0,1,0),
-            '1/8':  (1,1,0),
-            '1/16': (0,0,1),
-            '1/32': (1,0,1),
-            '1/64': (1,1,1)}
+RESOLUTION = {'Full': (0,0,0),
+             'Half': (1,0,0),
+             '1/4':  (0,1,0),
+             '1/8':  (1,1,0),
+             '1/16': (0,0,1),
+             '1/32': (1,0,1),
+             '1/64': (1,1,1)}
 
-STEP_MODE='Half' #Motor Stepping Mode. 'Full','Half','1/4',1/8','1/16','1/32',or '1/64'
-CW=1 #Clockwise rotation
-CCW=0 #Counterclockwise rotation
-SPR_FullStep=int(360/Step_deg) #Steps per revolution ---may round and not be exact but could not get to work as float last i tried
-delay_FullStep=.00125 #Time to delay between each step
+STEP_MODE = 'Half' #Motor Stepping Mode. 'Full','Half','1/4',1/8','1/16','1/32',or '1/64'
+CW = 1 #Clockwise rotation
+CCW = 0 #Counterclockwise rotation
+SPR_FullStep = int(360/Step_deg) #Steps per revolution ---may round and not be exact but could not get to work as float last i tried
+delay_FullStep = 0.00125 #Time to delay between each step
 
 #Setting/adjusting Steps per revolution for microstepping settings
-if STEP_MODE=='Full':
-    SPR=1*SPR_FullStep
-    delay=delay_FullStep/1
-elif STEP_MODE=='Half':
-    SPR=2*SPR_FullStep
-    delay=delay_FullStep/2
-elif STEP_MODE=='1/4':
-    SPR=4*SPR_FullStep
-    delay=delay_FullStep/4
-elif STEP_MODE=='1/8':
-    SPR=8*SPR_FullStep
-    delay=delay_FullStep/8
-elif STEP_MODE=='1/16':
-    SPR=16*SPR_FullStep
-    delay=delay_FullStep/16
-elif STEP_MODE=='1/32':
-    SPR=32*SPR_FullStep
-    delay=delay_FullStep/32
-elif STEP_MODE=='1/64':
-    SPR=64*SPR_FullStep
-    delay=delay_FullStep/64
+if STEP_MODE == 'Full':
+    SPR = 1*SPR_FullStep
+    delay = delay_FullStep/1
+elif STEP_MODE == 'Half':
+    SPR = 2*SPR_FullStep
+    delay = delay_FullStep/2
+elif STEP_MODE == '1/4':
+    SPR = 4*SPR_FullStep
+    delay = delay_FullStep/4
+elif STEP_MODE == '1/8':
+    SPR = 8*SPR_FullStep
+    delay = delay_FullStep/8
+elif STEP_MODE == '1/16':
+    SPR = 16*SPR_FullStep
+    delay = delay_FullStep/16
+elif STEP_MODE == '1/32':
+    SPR = 32*SPR_FullStep
+    delay = delay_FullStep/32
+elif STEP_MODE == '1/64':
+    SPR = 64*SPR_FullStep
+    delay = delay_FullStep/64
 #Now SPR (Steps per revolution) is set, as well as the delay
 ###Microstepping setup done   
 
 #RPi Pin Assignments 
-DIR=20 #Direction --- GPIO Pin Label
-STEP=21 #Step --- GPIO Pin Label
-MODE=(14,15,18) #Microstep Resolution Mode --GPIO Labels for M0, M1, and M2.
-SLEEP=17 #Sleep --- GPIO Pin Label
+DIR = 20 #Direction --- GPIO Pin Label
+STEP = 21 #Step --- GPIO Pin Label
+MODE = (14,15,18) #Microstep Resolution Mode --GPIO Labels for M0, M1, and M2.
+SLEEP = 17 #Sleep --- GPIO Pin Label
 
 #GPIO Setup
 GPIO.setmode(GPIO.BCM) #Set Pins to use the GPIO labels/broadcom labeling system instead of physical pin assignment
 GPIO.setup(DIR, GPIO.OUT) #Direction Pin on Pi is set to an output pin
 GPIO.setup(STEP, GPIO.OUT) #Step Pin on Pi is set to an output pin
-GPIO.setup(MODE,GPIO.OUT) #Set mode pin on Pi as an output.
-GPIO.setup(SLEEP,GPIO.OUT) #Set sleep pin on Pi as an output pin.
-GPIO.output(DIR,CW) #Direction set to CW initially (Rpi pulls DIR pin high?)
-GPIO.output(MODE,RESOLUTION[STEP_MODE]) #Sets full/microstepping up. See 'RESLUTION' dictionary
-GPIO.output(SLEEP,1) #enable stepper motor
+GPIO.setup(MODE, GPIO.OUT) #Set mode pin on Pi as an output.
+GPIO.setup(SLEEP, GPIO.OUT) #Set sleep pin on Pi as an output pin.
+GPIO.output(DIR, CW) #Direction set to CW initially (Rpi pulls DIR pin high?)
+GPIO.output(MODE, RESOLUTION[STEP_MODE]) #Sets full/microstepping up. See 'RESLUTION' dictionary
+GPIO.output(SLEEP, 1) #enable stepper motor
 #####
 
 
@@ -167,10 +171,8 @@ GPIO.output(SLEEP,1) #enable stepper motor
 ###Program###
 
 #Program will be written to move stepper motor forward (open throttle) if throttle is not already opened max
-#Also limited to open only if the desired speed is higher than actual speed, and only if acceleration rate is not too high
-#Likewise, will close if actual speed higher than desired, unless throttle fully closed already
+#also only if the desired speed is higher than actual speed, and also only if acceleration rate is not too high.
 
-#Functions
 def ax_spd_sens_v_to_veh_spd(axle_spd_sens_volt): #convert axle speed sensor voltage to vehicle speed in mph
     axle_speed_sensor_v_in = 3.3 #Sensor Supply Voltage
     axle_spd_sens_volt_per_rpm = axle_speed_sensor_v_in/5500 #volts per 5500 rpm (25mph with 18" tires)
@@ -187,8 +189,25 @@ def ax_spd_sens_v_to_veh_spd(axle_spd_sens_volt): #convert axle speed sensor vol
     return veh_spd
     
 def pps_v_to_des_spd(pedal_pos_sens_voltage): #convert pedal position sensor voltage to desired speed, in mph
-    pps_v_max = 3.3 #3.3V max voltage for Pedal Position Sensor (hpc is 5V? need to confirm)
-    des_spd = (pedal_pos_sens_voltage/pps_v_max)*cruise_spd
+    pps_v_in = 3.3 #3.3 or 5 (ECU delivers 5V)
+    pps_mode = "potentiometer" #"potentiometer" or "pedal"
+    if pps_mode == "potentiometer":
+        pps_v_min = 0
+        if pps_v_in == 3.3:
+            pps_v_max = 3.3
+        elif tps_v_in == 5:
+            pps_v_max = 5
+    elif pps_mode == "pedal":
+        if pps_v_in == 3.3:
+            pps_v_min = 0.724 #measured value with HPC
+            pps_v_max = 2.81 #measured value with HPC
+        elif pps_v_in == 5:
+            pps_v_min = 1.15 #measured value with HPC
+            pps_v_max = 3.876 #measured value with HPC
+    else:
+        print ("Error with pps_v_to_des_spd function")
+        
+    des_spd = cruise_spd*(pedal_pos_sens_voltage-pps_v_min)/(pps_v_max-pps_v_min)
     if des_spd < 0:
         des_spd = 0
     return des_spd
@@ -216,20 +235,20 @@ def tps_v_to_deg_throttle(tps_voltage): #convert throttle position sensor voltag
         deg_throttle = 0
     
     return deg_throttle
-#End of functions
+
 
 cruise_spd = 12 #desired cruising speed in mph
-accel_rate_cap=2.5 #mph/s --- This is the maximum acceleration rate desired. If going beyond this, throttle should be limited
+accel_rate_cap = 2.5 #mph/s --- This is the maximum acceleration rate desired. If going beyond this, throttle should be limited
 sleep(0.1) #wait some time to be sure sleep pin is activated
 
 #enter a forever while loop, until 'CTRL+c' keyboard interrupt occurs, then cleanup GPIO pins
 try:
-    accel_rate=0 # setting initial acceleration rate, in mph/s, set to 0 until enough data to change
+    accel_rate = 0 # setting initial acceleration rate, in mph/s, set to 0 until enough data to change
     itr = 0 #counter of iterations of while loop below, setting to 0 initially
     print_itr_reset_count = 25 #number of iterations before iterations reset for print loop, controls how often values print to screen, if that section of code not commented out
-    mov_avg_itr_window=25
+    mov_avg_itr_window = 25
     veh_spd_list = [] #creates an empty list of vehicle speeds, to be used later to find average accel rate
-    time_list=[] #creates an empty list of times, to be used later for caclulating accel rates
+    time_list = [] #creates an empty list of times, to be used later for caclulating accel rates
 
     while True:
         #get the current values of the sensors, and convert to useful numbers
@@ -241,44 +260,41 @@ try:
         #Calculate acceleration rate (the time period is controlled by the iterations 'mov_avg_itr_window' size now, but can change to wait for difference to be over some value...
         veh_spd_list.append(act_spd)  #add current vehicle speed to vehicle speed list
         time_list.append(time.perf_counter()) #add current time to time list
-        
-        #not sure if this is needed...is it worth it?
-#         if len(veh_spd_list) != len(time_list): #warn if lists are not equal length 
+#         if len(veh_spd_list) != len(time_list): #warn if lists are not equal length
 #             print("vehicle speed list length does not match time list length")
 #             break
-        
-    if len(veh_spd_list) >= mov_avg_itr_window:  #allow list length to build before removing old data
-            veh_spd_list=veh_spd_list[1:] #remove the oldest speed in list
+        if len(veh_spd_list) >= mov_avg_itr_window:  #allow list length to build before removing old data
+            veh_spd_list = veh_spd_list[1:] #remove the oldest speed in list
             time_list = time_list[1:] #remove the oldest time in list        
-            accel_rate=(veh_spd_list[-1]-veh_spd_list[0])/(time_list[-1]-time_list[0]) #calculate accel rate from oldest and newest speed and time values in lists
+            accel_rate = (veh_spd_list[-1]-veh_spd_list[0])/(time_list[-1]-time_list[0]) #calculate accel rate from oldest and newest speed and time values in lists
      # confirmed accel rate calculated correctly, but need to look into the time delta of this.
      # may want to have statement to only calculate if time difference is a certain delta or greater? perhaps 5 Hz         
               
               
         #This section for moving stepper motor --- steps motor forward or backward by 1 step (or does nothing if delta beteen des_deg & act_deg are less than the degrees per step, as to eliminate cycling back and forth 1 step constantly)
-        if des_spd>act_spd and tps_deg<80 and accel_rate<accel_rate_cap:  #want to go faster, not hitting max throttle or accel rate cap
-            GPIO.output(DIR,CW)
-            GPIO.output(STEP,GPIO.HIGH)
-            GPIO.output(STEP,GPIO.LOW)
+        if des_spd > act_spd and tps_deg < 80 and accel_rate < accel_rate_cap:  #want to go faster, not hitting max throttle or accel rate cap
+            GPIO.output(DIR, CW)
+            GPIO.output(STEP, GPIO.HIGH)
+            GPIO.output(STEP, GPIO.LOW)
             #act_deg=round(act_deg+1/SPD,2)
             sleep(delay)
-        elif des_spd>act_spd and tps_deg>0 and accel_rate>accel_rate_cap: #want to go faster, but hitting acccel rate cap
-            GPIO.output(DIR,CCW)
-            GPIO.output(STEP,GPIO.HIGH)
-            GPIO.output(STEP,GPIO.LOW)
-            #act_deg=round(act_deg-1/SPD,2)
-        elif des_spd<act_spd and tps_deg>0: #vehicle going faster than desired, close throttle
-            GPIO.output(DIR,CCW)
-            GPIO.output(STEP,GPIO.HIGH)
-            GPIO.output(STEP,GPIO.LOW)
-            #act_deg=round(act_deg-1/SPD,2)
+        elif des_spd > act_spd and tps_deg > 0 and accel_rate > accel_rate_cap: #want to go faster, but hitting acccel rate cap
+            GPIO.output(DIR, CCW)
+            GPIO.output(STEP, GPIO.HIGH)
+            GPIO.output(STEP, GPIO.LOW)
+            #act_deg = round(act_deg-1/SPD,2)
+        elif des_spd < act_spd and tps_deg > 0: #vehicle going faster than desired, close throttle
+            GPIO.output(DIR, CCW)
+            GPIO.output(STEP, GPIO.HIGH)
+            GPIO.output(STEP, GPIO.LOW)
+            #act_deg = round(act_deg-1/SPD,2)
             sleep(delay)
 
         
-        itr+=1 #add 1 to while loop iteration counter
+        itr += 1 #add 1 to while loop iteration counter
         
         
-#         #This next porton for testing only
+#         #This next portion for testing only
 #         print("speeds:",veh_spd_list[0:4],"...",veh_spd_list[-4:])
 #         print("time:",time_list[0:4],"...",time_list[-4:])
 #         print("accel_rate:",accel_rate)
@@ -286,15 +302,20 @@ try:
 #         if len(time_list) > 5:
 #                print("time_delta:",(time_list[-1]-time_list[-2]))
                  
-#         #this next if statement/section for testing program only
-#         #may need to change above itr line or reset if removing this section
-#         if itr >= print_itr_reset_count: #print desired and actual throttle position once every 75 iterations (to make easier to read) (modulo)
-#             print("tps_deg:",tps_deg,"deg  ","act_spd:",act_spd,"Des_veh_spd:",des_spd,"  accel_rate:",accel_rate," mph/s")
-#             itr = 0 #reset iterations       
+        #this next if statement/section for testing program only
+        #may need to change above itr line or reset if removing this section
+        if itr >= print_itr_reset_count: #print desired and actual throttle position once every 75 iterations (to make easier to read) (modulo)
+            print("tps_deg:",tps_deg,"deg  ","act_spd:",act_spd,"Des_veh_spd:",des_spd,"  accel_rate:",accel_rate," mph/s")
+            itr = 0 #reset iterations       
 
 
 except KeyboardInterrupt:
-    GPIO.output(SLEEP,GPIO.LOW) #disable stepper motor (to keep from getting hot unneccesarily)
+    GPIO.output(SLEEP, GPIO.LOW) #disable stepper motor (to keep from getting hot unneccesarily)
     GPIO.cleanup() #reset GPIO pins to inputs to protect against shorting accidentally
     print("GPIO pins cleaned up")
-#Perhaps limit the amount of throttle by linking the throttle 0-max to position of pedal (0-max), then once reaching 1/2 or 3/4 of desired speed, then ramp down. Probably can control via PI/PID control similar though
+
+#General Comments on things to do:
+#Nice to have a different ramp rate for different speed range. Say beginning is less sensitive, then as approaching desired spee, more sensitive. Perhaps a  then once reaching ~1/2 or 3/4 of desired speed, then ramp up sensitivity with max accel rate changes? Probably can control via PI/PID control similar though? Not sure if need that yet
+#Would be good to have step mode (micro/full) change dynamically, according to speed delta. If close to desired speed, more fine tune adjustements would be made. Could have a dictionary of speed delta and microstepping mode?
+#If doing this, may need to make the microstepping if statement be inside of a function to call?
+#May also look at speed less than say .05 mph (assume vehicle still), then first x amount of time (say 1 sec) has a cap on throttle position to ensure no overshoot initially? this is typically when jarring happens...
