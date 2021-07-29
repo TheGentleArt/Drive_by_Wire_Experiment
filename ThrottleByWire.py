@@ -265,7 +265,7 @@ sleep(0.1) #wait some time to be sure sleep pin is activated
 
 #enter a forever while loop, until 'CTRL+c' keyboard interrupt occurs, then cleanup GPIO pins
 try:
-    print("Press 'CNRL+c' to stop program and cleanup GPIO Pins')
+    print("Program Begun ; Press 'CNRL+c' to stop program and cleanup GPIO Pins")
     accel_rate = 0 # setting initial acceleration rate, in mph/s, set to 0 until enough data to change
     itr = 0 #counter of iterations of while loop below, setting to 0 initially
     print_itr_reset_count = 25 #number of iterations before iterations reset for print loop, controls how often values print to screen, if that section of code not commented out
