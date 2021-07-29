@@ -1,6 +1,6 @@
 #J.Williams
 #This script intends to move a stepper motor. It uses a RPi, a DRV8825 Stepper Motor Driver, a breadboard, a NEMA 17 Stepper Motor, a ADS1115 Analog to Digital Converter, and a power supply for now.
-#A large portion of getting the stepper motor working correctly was achieved via watching a tutorial from 'rdagger68' on Youtube titled '8Raspberry Pi Stepper Motor Tutorial'.
+#A large portion of getting the stepper motor working correctly was achieved via watching a tutorial from 'rdagger68' on Youtube titled 'Raspberry Pi Stepper Motor Tutorial'.
 #Another portion of getting the ADS1115 to work correctly was done by watching a tutorial from 'Ravivarman Rajendiran' on Youtube titled 'Analog Sensors Interfacing with Raspberry Pi using ADS1115 ADC. Step by step guide.'
 
 
@@ -20,18 +20,18 @@
     #M0> (Optional) Pi GPIO 14 (Physical Pin 8)    (Without, operates in Full Step mode)
     #M1> (Optional) Pi GPIO 15 (Physical Pin 10)    (Without, operates in Full Step mode)
     #M2> (Optional) Pi GPIO 18 (Physical Pin 12)    (Without, operates in Full Step mode)
-    #RESET>Pi 3.3V+ (Supposedly DRV8825 will not operate if this is not pulled to HIGH position)
-    #SLEEP>Pi GPIO 17 (Physical Pin 11) (Could also be placed on 3.3V+ pin, but would always leave stepper motor engaged, which may result in unnecessary power draw)
-    #STEP>Pi GPIO 21 (Physical Pin 40) (IIRC when pulsed, tells motor to take one step)
-    #DIR>Pi GPIO20 (Physical Pin 38)
-    #VMOT>Power Supply 12V+ (Be careful connecting anything over 3.3V as this may damage the Pi) (Also note that a 100 uF capacitor was used across the VMOT/GND_MOT pins in case of voltage spike issues)
-    #GND_MOT>Power Supply 12V- (also connect to GND LOGIC Pin just in case the other ground circuit is bad)
+    #RESET> Pi 3.3V+ (Supposedly DRV8825 will not operate if this is not pulled to HIGH position)
+    #SLEEP> Pi GPIO 17 (Physical Pin 11) (Could also be placed on 3.3V+ pin, but would always leave stepper motor engaged, which may result in unnecessary power draw)
+    #STEP> Pi GPIO 21 (Physical Pin 40) (IIRC when pulsed, tells motor to take one step)
+    #DIR> Pi GPIO20 (Physical Pin 38)
+    #VMOT> Power Supply 12V+ (Be careful connecting anything over 3.3V as this may damage the Pi) (Also note that a 100 uF capacitor was used across the VMOT/GND_MOT pins in case of voltage spike issues)
+    #GND_MOT> Power Supply 12V- (also connect to GND LOGIC Pin just in case the other ground circuit is bad)
     #B2> Motor Pole (Pair with B1) (Do not connect until DRV8825 Pot is adjusted)
     #B1> Motor Pole (Pair with B2) (Do not connect until DRV8825 Pot is adjusted)
     #A1> Motor Pole (Pair with A2) (Do not connect until DRV8825 Pot is adjusted)
     #A2> Motor Pole (Pair with A1) (Do not connect until DRV8825 Pot is adjusted)
     #FAULT> Not Used
-    #GND_LOGIC>Pi GND (Physical Pin 39) (also connect to GND_MOT Pin just incase other ground circuit is bad)
+    #GND_LOGIC> Pi GND (Physical Pin 39) (also connect to GND_MOT Pin just incase other ground circuit is bad)
 #####
 
 
@@ -40,7 +40,7 @@
     #Motor Ground tied to the power supply ground (negative terminal)
     #VMOT tied to the power supply (+ terminal)(Do NOT connect the power supply (+) to anything but the VMOT pin on the DRV8825, as this will be using more voltage than the Pi can handle and will damage it.)
     #100 uF capacitor used across the VMOT and GND pins for the DRV8825. This is done to have a capacitor in parallel so that any voltage spikes will be 'absorbed' by the capacitor.
-    #SLEEP pin on the DRV8825 is connected to GPIO pin 17 on Pi. (Can cannect this to 3.3V+pin if do not need to put the motor to sleep when not turning (pedal not pressed) if want to save power.)
+    #SLEEP pin on the DRV8825 is connected to GPIO pin 17 on Pi. (Can connect this to 3.3V (+) pin if do not need to put the motor to sleep when not turning (pedal not pressed) if want to save power.)
     #RESET Pin of DRV8825 to 3.3V (+)
     #STEP Pin to GPIO 21 of Pi
     #DIR Pin to GPIO 20 of Pi
@@ -314,7 +314,7 @@ try:
         itr += 1 #add 1 to while loop iteration counter
         
         
-#         #This next porton for testing only
+#         #This next portion for testing only
 #         print("speeds:",veh_spd_list[0:4],"...",veh_spd_list[-4:])
 #         print("time:",time_list[0:4],"...",time_list[-4:])
 #         print("accel_rate:",accel_rate)
@@ -329,11 +329,11 @@ try:
             itr = 0 #reset iterations
             
 
-
 except KeyboardInterrupt:
     GPIO.output(SLEEP, GPIO.LOW) #disable stepper motor (to keep from getting hot unneccesarily)
     GPIO.cleanup() #reset GPIO pins to inputs to protect against shorting accidentally
     print("Program Ended; GPIO pins cleaned up")
 
 #General Comments on things to do:
+#May want to look into accel rate time and make a minimum time delta before it overrides the accel rate calc? Since RPi time does not seem consistent...
 #Nice to have a different ramp rate for different speed range. Say beginning is less sensitive, then as approaching desired speed, more sensitive. Perhaps a  then once reaching ~1/2 or 3/4 of desired speed, then ramp up sensitivity with max accel rate changes? Probably can control via PI/PID control similar though? Not sure if need that yet
