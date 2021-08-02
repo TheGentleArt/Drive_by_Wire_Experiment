@@ -84,8 +84,7 @@ from adafruit_ads1x15.analog_in import AnalogIn
 import board
 import busio
 import math
-#import timeit
-#import numpy as np
+import numpy as np
 #####
 
 
@@ -100,6 +99,7 @@ ads.gain = 1 #GAIN
 pps = AnalogIn(ads, ADS.P0) #Pedal Position Sensor
 axle_spd_sens = AnalogIn(ads, ADS.P1) #Axle Shaft Speed Sensor
 tps = AnalogIn(ads, ADS.P2) #Throttle Position Sensor
+#Note: To install the package necessary for using the ads module, try 'sudo pip3 install adafruit-circuitpython-ads1x15'
 #####
 
 
@@ -123,8 +123,8 @@ RESOLUTION = {'Full': (0,0,0),
 
 
 #Setup for RPi pin being high/low depending on motor direction desired
-CW = 1 #Clockwise rotation
-CCW = 0 #Counterclockwise rotation
+CW = 0 #Clockwise rotation
+CCW = 1 #Counterclockwise rotation
 
 #RPi Pin Assignments 
 DIR = 20 #Direction --- GPIO Pin Label
@@ -183,11 +183,26 @@ def pps_v_to_des_spd(): #convert pedal position sensor voltage to desired speed,
             pps_v_max = 3.876 #measured value with HPC
     else:
         print ("Error with pps_v_to_des_spd function")
-    #
-    des_spd = cruise_spd*(pps.voltage-pps_v_min)/(pps_v_max-pps_v_min) #This line takes the input from the pps
+    #This next section creates a non-linear map for pedal position vs speed desired
+    pps_percent = (pps.voltage - pps_v_min) / (pps_v_max - pps_v_min) * 100
+    pedalspeedmap_pedalpos=np.arange(0,101,5) #create an array from 0 to 100
+    #pedalspeedmap_speed=[0,.25,.6,1,1.5,2.1,2.7,3.35,4,4.65,5.4,6.1,6.9,7.7,8.5,9.3,10.1,10.8,11.4,11.8,12]
+    pedalspeedmap_speed_percentage=[0,0.2,0.05,0.085,0.125,0.175,0.225,0.28,0.333,0.3875,0.45,0.51,0.575,0.64,0.71,0.775,0.84,0.9,0.95,0.98,1]
+    pedalspeedmap_speed = np.multiply(pedalspeedmap_speed_percentage, cruise_spd)
+    des_spd = np.interp(pps_percent, pedalspeedmap_pedalpos, pedalspeedmap_speed) #linear interpolation of speed map
+#   #The below method uses a curve fit instead of linear interpolation
+#     x=pedalspeedmap_pedalpos
+#     y=pedalspeedmap_speed
+#     curve=np.polyfit(x,y,3)
+#     poly = np.poly1d(curve)
+#     des_spd = poly(pps_percent)
+#
     if des_spd < 0:
         des_spd = 0
-    return round(des_spd,2)
+    else:
+        des_spd = round(des_spd, 2)
+    #
+    return des_spd
 
 def tps_v_to_deg_throttle(): #convert throttle position sensor voltage to deg of opening
     tps_voltage = tps.voltage #Storing TPS voltage as variable so that everything is evalauted from same value within this function
@@ -220,17 +235,17 @@ def spd_error(): #calculates the difference between desired speed and actual spe
 
 def step_mode(): #Allows the motor driver to control microstepping, depending upon how close actual and desired speeds are, in order for throttle control to be more precise vs quick
     diff = abs(spd_error())
-    if diff < 0.25:
+    if diff < 0.5:
         step_mode = '1/64'
-    elif diff < 0.5:
+    elif diff < 1:
         step_mode = '1/32'
-    elif diff < .75:
+    elif diff < 1.5:
         step_mode = '1/16'
-    elif diff < 1.25:
+    elif diff < 2:
         step_mode = '1/8'
-    elif diff < 1.75:
-        step_mode = '1/4'
     elif diff < 2.5:
+        step_mode = '1/4'
+    elif diff < 3.5:
         step_mode = 'Half'
     else:
         step_mode = 'Full'
@@ -295,7 +310,7 @@ try:
         GPIO.output(MODE, RESOLUTION[step_mode()]) #Sets full/microstepping up. See 'RESOLUTION' dictionary. This is used in order to change the speed at which the throttle will move, so that near cruising speeds it can be more fine tuned, etc.
         
         #This section for moving stepper motor --- steps motor forward or backward by 1 step (or does nothing if delta beteen des_deg & act_deg are less than the degrees per step, as to eliminate cycling back and forth 1 step constantly)
-        if des_spd > act_spd and tps_deg < 79 and accel_rate < accel_rate_cap:  #want to go faster, not hitting max throttle or accel rate cap
+        if des_spd > act_spd and tps_deg < 78 and accel_rate < accel_rate_cap:  #want to go faster, not hitting max throttle or accel rate cap
             GPIO.output(DIR, CW)
             GPIO.output(STEP, GPIO.HIGH)
             GPIO.output(STEP, GPIO.LOW)
@@ -325,7 +340,7 @@ try:
         #this next if statement/section for testing program only
         #may need to change above itr line or reset if removing this section
         if itr >= print_itr_reset_count: #print desired and actual throttle position once every 75 iterations (to make easier to read) (modulo)
-            print("tps_deg:",tps_deg,"deg  ","act_spd:",act_spd,"Des_veh_spd:",des_spd,"  accel_rate:",accel_rate," mph/s")
+            print("tps_deg:",round(tps_deg,2),"deg  ","act_spd:",act_spd,"Des_veh_spd:",des_spd,"  accel_rate:",accel_rate," mph/s")
             itr = 0 #reset iterations
             
 
@@ -336,4 +351,6 @@ except KeyboardInterrupt:
 
 #General Comments on things to do:
 #May want to look into accel rate time and make a minimum time delta before it overrides the accel rate calc? Since RPi time does not seem consistent...
-#Nice to have a different ramp rate for different speed range. Say beginning is less sensitive, then as approaching desired speed, more sensitive. Perhaps a  then once reaching ~1/2 or 3/4 of desired speed, then ramp up sensitivity with max accel rate changes? Probably can control via PI/PID control similar though? Not sure if need that yet
+#Need to make sure the throttle closes completely, regardless of desired/actual speeds, if a pedal switch opens, so a pedal switch closure won't trigger a stuck throttle response
+#When getting off the throttle, (or pedal switch), should probably try to 'clock' motor close to 0 deg just in case it overshot when closing quickly
+#May want to look at resetting max tps to something like voltage at 76 deg then increase if seen higher? But then would need to find how high it could go....not sure how to handle this yet.
