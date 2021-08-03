@@ -99,7 +99,7 @@ ads.gain = 1 #GAIN
 pps = AnalogIn(ads, ADS.P0) #Pedal Position Sensor
 axle_spd_sens = AnalogIn(ads, ADS.P1) #Axle Shaft Speed Sensor
 tps = AnalogIn(ads, ADS.P2) #Throttle Position Sensor
-psw = AnalogIn(ads, ADS.P3) #Pedal Switch
+pedalswitch = AnalogIn(ads, ADS.P3) #Pedal Switch
 #Note: To install the package necessary for using the ads module, try 'sudo pip3 install adafruit-circuitpython-ads1x15'
 #####
 
@@ -272,7 +272,7 @@ def delay():
     return delay
 
 def pedalswitchstate():
-    if psw.voltage > 2.5: #Check voltage from pedal switch
+    if pedalswitch.voltage > 1.5: #Check voltage from pedal switch
         psw = 1
     else:
         psw = 0
@@ -301,7 +301,7 @@ try:
         act_spd = ax_spd_sens_v_to_veh_spd()#gets voltage reading from axle input shaft speed sensor and converts to vehicle speed in mph
         des_spd = pps_v_to_des_spd() #Converts voltage reading to desired vehicle speed in mph
         tps_deg = tps_v_to_deg_throttle() #throttle opening in degrees, used to determine if throttle already at max/min limits before moving stepper motor further             
-            
+        psw = pedalswitchstate() #pedal switch position (1 is pedal down, 0 is pedal up)
         
         #Calculate acceleration rate (the time period is controlled by the iterations 'mov_avg_itr_window' size now, but can change to wait for difference to be over some value...
         veh_spd_list.append(act_spd)  #add current vehicle speed to vehicle speed list
@@ -319,8 +319,7 @@ try:
         GPIO.output(MODE, RESOLUTION[step_mode()]) #Sets full/microstepping up. See 'RESOLUTION' dictionary. This is used in order to change the speed at which the throttle will move, so that near cruising speeds it can be more fine tuned, etc.
         
         #This section for moving stepper motor --- steps motor forward or backward by 1 step (or does nothing if delta beteen des_deg & act_deg are less than the degrees per step, as to eliminate cycling back and forth 1 step constantly)
-        if pedalswitchstate() == 1:
-        if des_spd > act_spd and tps_deg < 78 and accel_rate < accel_rate_cap:  #want to go faster, not hitting max throttle or accel rate cap
+        if des_spd > act_spd and tps_deg < 78 and accel_rate < accel_rate_cap and psw == 1:  #want to go faster, not hitting max throttle or accel rate cap
             GPIO.output(DIR, CW)
             GPIO.output(STEP, GPIO.HIGH)
             GPIO.output(STEP, GPIO.LOW)
@@ -339,11 +338,17 @@ try:
         itr += 1 #add 1 to while loop iteration counter
         
         #loop to check if pedal is up, and then close throttle if not already closed
-        while pedalswitchstate() == 0 and tps_deg > 0.75 and pps: #if the pedal switch is open, and throttle is still open, close throttle (did not make 0 in case reading is not exactly 0 when at throttle stop)
+        tps_deg_offset = 0 #used to make sure not cycling in/out of below while loop continually
+        while psw == 0 and tps_deg > 2.5: #if the pedal switch is open, and throttle is still open, close throttle (did not make 0 in case reading is not exactly 0 when at throttle stop)
             GPIO.output(DIR, CCW)
             GPIO.output(STEP, GPIO.HIGH)
             GPIO.output(STEP, GPIO.LOW)
             sleep(delay())
+            tps_deg = tps_v_to_deg_throttle()
+            if tps_deg <= 2.5: # this loop used to make sure the throttle position sensor voltage bouncing around does not cause it to go in/out of the while loop
+                tps_deg_offset = 0.5
+            tps_deg = tps_deg + tps_deg_offset
+            print("newloop, tps is: ",tps_deg," psw state is:",psw)
                                    
         
 #         #This next portion for testing only
