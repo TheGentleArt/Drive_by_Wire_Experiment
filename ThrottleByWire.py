@@ -188,7 +188,7 @@ def pps_v_to_des_spd(): #convert pedal position sensor voltage to desired speed,
     pps_percent = (pps.voltage - pps_v_min) / (pps_v_max - pps_v_min) * 100
     pedalspeedmap_pedalpos=np.arange(0,101,5) #create an array from 0 to 100
     #pedalspeedmap_speed=[0,.25,.6,1,1.5,2.1,2.7,3.35,4,4.65,5.4,6.1,6.9,7.7,8.5,9.3,10.1,10.8,11.4,11.8,12]
-    pedalspeedmap_speed_percentage=[0,0.2,0.05,0.085,0.125,0.175,0.225,0.28,0.333,0.3875,0.45,0.51,0.575,0.64,0.71,0.775,0.84,0.9,0.95,0.98,1]
+    pedalspeedmap_speed_percentage=[0,0.02,0.05,0.085,0.125,0.175,0.225,0.28,0.333,0.3875,0.45,0.51,0.575,0.64,0.71,0.775,0.84,0.9,0.95,0.98,1]
     pedalspeedmap_speed = np.multiply(pedalspeedmap_speed_percentage, cruise_spd)
     des_spd = np.interp(pps_percent, pedalspeedmap_pedalpos, pedalspeedmap_speed) #linear interpolation of speed map
 #   #The below method uses a curve fit instead of linear interpolation
@@ -272,7 +272,7 @@ def step_mode_pedal_up(): #function to control speed at which throttle closes wh
     return step_mode  
 
 def delay(arg = None): #Controls the delay between steps of stepper motor (optional 'pedal_up' argument)
-    delay_FullStep=0.00125 #Time to dealay between each step, if full stepping
+    delay_FullStep = 0.00125 #Time to dealay between each step, if full stepping
     if arg == None: #Assign STEP_MODE to variable so it does not iterate through function each time below
         STEP_MODE = step_mode()
     elif arg == 'pedal_up':
@@ -293,6 +293,8 @@ def delay(arg = None): #Controls the delay between steps of stepper motor (optio
         delay = delay_FullStep/32
     elif STEP_MODE == '1/64':
         delay = delay_FullStep/64
+    if delay < 0.000002:
+        delay = 0.000002 #min delay of 2 microseconds
     return delay
 
 def pedalswitchstate(): #returns the pedal switch state (Pedal Up = 0 ; Pedal Down = 1)
@@ -301,7 +303,20 @@ def pedalswitchstate(): #returns the pedal switch state (Pedal Up = 0 ; Pedal Do
     else:
         psw = 0
     return psw
+
+def step(): #moves the stepper motor forward or backward if no argument is given, moves forward
+    GPIO.output(STEP, GPIO.HIGH)
+    GPIO.output(STEP, GPIO.LOW)
+    sleep(delay())
     
+def step_open():
+    GPIO.output(DIR, CW)
+    step()
+
+def step_close():
+    GPIO.output(DIR, CCW)
+    step()
+
 #End of functions
 
 
@@ -311,6 +326,7 @@ accel_rate_cap = 2.5 #mph/s --- This is the maximum acceleration rate desired. I
 sleep(0.1) #wait some time to be sure sleep pin is activated
 tps_deg_max_pedal_up = 0.5 #maximum amount of degrees the throttle can have when pedal is up. This may not be needed if TRS is strong enough, but stepper motor is not strong enough to guarantee to hold against TRS all the time unfortunately
 #psw_loop_allow = True #defining before while loop, used to cancel out of a loop where pedal switch is up and tps value is not changing after so many iterations of stepping the motor
+step_stop = False
 
 #enter a forever while loop, until 'CTRL+c' keyboard interrupt occurs, then cleanup GPIO pins
 try:   
@@ -323,6 +339,9 @@ try:
     mov_avg_itr_window = 25 #controls how many iterations are used for the moving average calculations
     veh_spd_list = [] #creates an empty list of vehicle speeds, to be used later to find average accel rate
     time_list = [] #creates an empty list of times, to be used later for caclulating accel rates
+    step_history = [] #creates an empty list of what the stepper motor steps have been, to be used later for making sure later if lots of steps occur, throttle actually moves
+    step_history_max_count = 50
+    tps_history = [] #creates an empty list of what the tps value has been, to be used later for making sure later if lots of steps occur, throttle actually moves
     
     while True:
         #get the current values of the sensors, and convert to useful numbers
@@ -343,25 +362,46 @@ try:
             accel_rate = (veh_spd_list[-1]-veh_spd_list[0])/(time_list[-1]-time_list[0]) #calculate accel rate from oldest and newest speed and time values in lists
             # confirmed accel rate calculated correctly, but need to look into the time delta of this.
             # may want to have statement to only calculate if time difference is a certain delta or greater? perhaps 5 Hz?      
-              
+        
         GPIO.output(MODE, RESOLUTION[step_mode()]) #Sets full/microstepping up. See 'RESOLUTION' dictionary. This is used in order to change the speed at which the throttle will move, so that near cruising speeds it can be more fine tuned, etc.
+        
         
         #This section for moving stepper motor --- steps motor forward or backward by 1 step (or does nothing if delta beteen des_deg & act_deg are less than the degrees per step, as to eliminate cycling back and forth 1 step constantly)
         if des_spd > act_spd and tps_deg < 78 and accel_rate < accel_rate_cap and psw == 1:  #want to go faster, not hitting max throttle or accel rate cap
-            GPIO.output(DIR, CW)
-            GPIO.output(STEP, GPIO.HIGH)
-            GPIO.output(STEP, GPIO.LOW)
-            sleep(delay())
+            if step_stop == False:
+                step_open()
+            step_history.append(1)  #1 indicates movement forward
+            tps_history.append(round(tps_deg,1))
         elif des_spd > act_spd and tps_deg > 0.2 and accel_rate > accel_rate_cap: #want to go faster, but hitting acccel rate cap
-            GPIO.output(DIR, CCW)
-            GPIO.output(STEP, GPIO.HIGH)
-            GPIO.output(STEP, GPIO.LOW)
-            sleep(delay())
+            if step_stop == False:
+                step_close()
+            step_history.append(-1) #-1 indicates movement backwards
+            tps_history.append(round(tps_deg,1))
         elif des_spd < act_spd and tps_deg > 0.2: #vehicle going faster than desired, close throttle
-            GPIO.output(DIR, CCW)
-            GPIO.output(STEP, GPIO.HIGH)
-            GPIO.output(STEP, GPIO.LOW)
-            sleep(delay())
+            if step_stop == False:
+                step_close()
+            step_history.append(-1) #-1 indicates movement backwards
+            tps_history.append(round(tps_deg,1))
+        else:
+            step_history.append(0) #0 indicates no movement
+            tps_history.append(round(tps_deg,1))
+            #now we have a list of the movements of the stepper motor over a recent short amount of time
+        
+        if len(step_history) >= step_history_max_count: #make sure step history list does not get too long
+            step_history = step_history[1:]
+            tps_history = tps_history[1:]
+            if tps_history.count(tps_history[0]) >= len(tps_history):
+                tps_history_same = True
+            else:
+                tps_history_same = False
+            if step_history.count(step_history[0]) >= len(step_history): #if the first element in step history list exist for all of the elements (length of) the list
+                if tps_history_same == True:
+                    stop_step = True
+#Have not been able to get the step_stop to operate correctly for some reason...need to see if can fix or find alternate method              
+            
+        
+        
+            
 
         itr += 1 #add 1 to while loop iteration counter
         
@@ -408,7 +448,8 @@ try:
         #this next if statement/section for testing program only
         #may need to change above itr line or reset if removing this section
         if itr >= print_itr_reset_count: #print desired and actual throttle position once every 75 iterations (to make easier to read) (modulo)
-            print("tps_deg:",round(tps_deg,2),"deg  ","act_spd:",act_spd,"Des_veh_spd:",des_spd,"  accel_rate:",accel_rate," mph/s")
+            #print("tps_deg:",round(tps_deg,2),"deg  ","act_spd:",round(act_spd,2)," Des_veh_spd:",round(des_spd,2),"  accel_rate:",round(accel_rate,2)," mph/s","  step mode is: ",step_mode(),"min delay is:",round(delay(),7),"  psw is: ",psw)
+            print(step_history)
             itr = 0 #reset iterations
             
 
@@ -422,3 +463,4 @@ except KeyboardInterrupt:
 #Note, have found the stepper motor loses position when changing microstepping, or when getting close to full throtle,...with TRS unwound slightly, seems to behave fine but may cause throttle not to close completely sometimes
 #Also found that when achieving max accel rate, stepper sometimes loses position
 #May want to see about adding feature to only attempt to close throttle if last x iterations have 1) been below say 2 degrees, and 2) have not resulted in a noticeable tps value decrease
+#Perhaps the above would be a good reason to use/learn OOP and use a class that can count the number of times it has been used?
