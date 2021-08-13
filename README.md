@@ -6,7 +6,7 @@ I will preface this with stating that I am new to coding. Ultimately, this progr
 This is the first program that I have made that I am actually using to accomplish some task. My hopes are that this program, being used for something I have wanted to do for a couple of years now, will keep me more motivated to learn than watching some tutorials online that I generally have little interest in.
 
 The program ultimately takes four inputs, and uses these to control the throttle position.
-With these four inputs, it should determine what signals to send to a stepper motor driver in order for a stepper motor to control a throttle body.
+With these four inputs, the program sends signals to a stepper motor driver in order for a stepper motor to control a throttle body.
 The first input is the throttle position, which is controlled by the motor via a pulley/cable system. This is useful to know so the stepper motor does not step too far.
 The second input is the pedal position, which shall be mapped to desired speed like most electric golf cars (contrary to most automobiles which use torque-based pedal mapping).
 The third input is the vehicle speed. This is gathered by means of a hall effect sensor and teeth (on a cogged ring pressed) on the axle input shaft.
