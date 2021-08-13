@@ -1,23 +1,31 @@
-# Drive_by_Wire_Experiment
+# Throttle_by_Wire_Experiment
 My first 'useful' program, where I attempt to make a standalone makeshift throttle-by-wire system to put on a golf car.
 
-I will preface this with stating that I am new to coding.
-I recently got a Raspberry Pi and have been trying to do some physical computing with Python. After doing some Python tutorials online, I found that this method was not motivating me much, so I wanted to do something more useful. I have a desire to make a throttle-by-wire system operate on a golf car, and thus I am trying to learn.
+I will preface this with stating that I am new to coding. Ultimately, this program was initiated in order to learn. 
+(If you have any constructive criticism, please share!)
+This is the first program that I have made that I am actually using to accomplish some task. My hopes are that this program, being used for something I have wanted to do for a couple of years now, will keep me more motivated to learn than watching some tutorials online that I generally have little interest in.
 
-My ultimate goal would be to have a motor control the position of the throttle (by means of pulley/cable is acceptable for now), having three inputs to do this.
-The first input is the throttle position, which is controlled by the motor.
-The second input is the pedal position.
-The third input is the vehicle speed (axle input shaft speed or wheel speed etc.).
+The program ultimately takes four inputs, and uses these to control the throttle position.
+With these four inputs, it should determine what signals to send to a stepper motor driver in order for a stepper motor to control a throttle body.
+The first input is the throttle position, which is controlled by the motor via a pulley/cable system. This is useful to know so the stepper motor does not step too far.
+The second input is the pedal position, which shall be mapped to desired speed like most electric golf cars (contrary to most automobiles which use torque-based pedal mapping).
+The third input is the vehicle speed. This is gathered by means of a hall effect sensor and teeth (on a cogged ring pressed) on the axle input shaft.
+The fourth input is the pedal switch. This is not necessary, but helpful for safety reasons. This is used to ensure that the program only attempts to accelerate the vehicle if both the pedal positions sensor value dictates so as well as confirming the pedal is indeed down.
 
-The program should work by being able to choose a target cruising speed and maximum acceleration rate for the vehicle. The program shall look at desired speed by means of pedal position (speed mapped, not torque mapped), and vehicle speed by means of a speed sensor mounted to a rotating part tied directly to the wheels (preferably with a higher angular speed than the wheels for more resolution), and compare the two speeds, adjusting throttle as needed.
-The throttle shall be reduced if acceleration limits are approached. The throttle shall also not be attempted to be opened once it reaches a limit (max throttle opening) in order to not put undue stress on the system, and also shall not attempt to close the throttle once it reaches a limit (min throttle opening) in order to not have too much slack in the linkage (or putting too much stress in system if a rod linkage in lieu of a cable linkage), which may be undesirable as this would increase the amount of motor rotation required to result in throttle movement. 
-The pedal position shall dictate the desired speed, but be non-linear to allow more granular control. This shall be done by making the pedal less sensitive at low speeds in order to make the user be able to more easily finely control vehicle movement at low speeds. 
-I am currently debating doing this at high speeds as well, as to have a sideways 's' pattern of mapping, to allow the user to have a bit more fine control of speeds near the speeds of other non throttle-by-wire vehicles, as the traditional ground speed govenor systems are never an identical speed, and thus some vehicles may be governed slower and the user may want to match the speed of the leading vehicle more easily. 
+(It was suggested of me to use engine speed as an input, but this would be extremely complicated;  power predictions would need to be made using a throttle position vs engine speed table, not to mention wear effecting power over time, fuel types, air(oxygen) density, and CVT ratios needing to be calculated, etc. 
+In addition, if it isn't being used to change the stepping by more than one step at a time, and I continue to use a stepper motor such as the NEMA 17 which is not able to move that fast and does not have much torque available, then it would seem somewhat pointless to me if I can just look at desired and actual speeds.
+HOWEVER, with that said, if I am mistaken and someone can explain in detail how one would change the code (or give a simple flowchart of how engine speed would be used to alter what I am doing) after explain the benefits, I'd be open to it. As of yet, I have not been given reasoning behind it unfortunately.)) 
 
-A PID control will be nice. I'm not sure yet if PID is required, or if PI or PD etc. will work.
-Currently, the program is being run on a table top setup, but I believe it is near ready to experiment on a vehicle.
-It may be the case that the response is fast enough that PID is not required. Testing will have to be done soon.
+The program works by a target cruising speed and maximum acceleration rate for the vehicle being set.
+The program compares the two speeds (desired from the pedal ; actual from the hall sensor), adjusting throttle as needed.
+The throttle is reduced if acceleration limits are approached. 
+The throttle position sensor is used to determine if stepping further would put undue stress on the system. It is also used in order to not attempt to close the throttle once it reaches a limit (min throttle opening) in order to not have too much slack in the linkage (or putting too much stress in system if a rod linkage in lieu of a cable linkage), which may be undesirable as this would increase the amount of motor rotation required to result in throttle movement. 
+The pedal position dictates the desired speed, and is non-linearly mapped to allow more granular control. This is done by making the pedal less sensitive at low speeds in order to make the user be able to more easily finely control vehicle movement at low speeds. 
+(This is currently also done at high speeds as well, as to have a sideways 's' pattern of mapping, to allow the user to have a bit more fine control of speeds near the speeds of other (non-throttle-by-wire vehicles), as the traditional ground speed govenor systems are never an identical speed, and thus some vehicles may be governed slower and the user may want to match the speed of the leading vehicle more easily.)
+
+PID control may be looekd at in the future. I'm not sure yet if PID is required, or if PI or PD etc. will work.
+Currently, the program is being run on a table top setup. A vehicle is being acqired/modified now in order to transition to usage on a test vehicle.
+It may be the case that the response is fast enough that PID is not required. 
 
 This is mainly just a 'fun' project for me to try to learn on, instead of just following along with tutorials online that put me to sleep, with no real deliverable end goal that is meaningful to me.
 
-I will update this once I believe I have a somewhat suitable program.
