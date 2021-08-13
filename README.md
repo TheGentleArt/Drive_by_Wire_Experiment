@@ -12,10 +12,6 @@ The second input is the pedal position, which shall be mapped to desired speed l
 The third input is the vehicle speed. This is gathered by means of a hall effect sensor and teeth (on a cogged ring pressed) on the axle input shaft.
 The fourth input is the pedal switch. This is not necessary, but helpful for safety reasons. This is used to ensure that the program only attempts to accelerate the vehicle if both the pedal positions sensor value dictates so as well as confirming the pedal is indeed down.
 
-(It was suggested of me to use engine speed as an input, but this would be extremely complicated;  power predictions would need to be made using a throttle position vs engine speed table, not to mention wear effecting power over time, fuel types, air(oxygen) density, and CVT ratios needing to be calculated, etc. 
-In addition, if it isn't being used to change the stepping by more than one step at a time, and I continue to use a stepper motor such as the NEMA 17 which is not able to move that fast and does not have much torque available, then it would seem somewhat pointless to me if I can just look at desired and actual speeds.
-HOWEVER, with that said, if I am mistaken and someone can explain in detail how one would change the code (or give a simple flowchart of how engine speed would be used to alter what I am doing) after explain the benefits, I'd be open to it. As of yet, I have not been given reasoning behind it unfortunately.)) 
-
 The program works by a target cruising speed and maximum acceleration rate for the vehicle being set.
 The program compares the two speeds (desired from the pedal ; actual from the hall sensor), adjusting throttle as needed.
 The throttle is reduced if acceleration limits are approached. 
