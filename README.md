@@ -1,4 +1,4 @@
-# Throttle_by_Wire_Experiment
+# Throttle-by-Wire_Project
 My first 'useful' program, where I attempt to make a standalone makeshift throttle-by-wire system to put on a golf car.
 This repo is not licensed, purposely. 
 
