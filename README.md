@@ -1,5 +1,5 @@
 # Throttle-by-Wire_Project
-My first 'useful' program, where I attempt to make a standalone makeshift throttle-by-wire system to put on a golf car.
+My first 'useful' program, where I attempt to make a standalone makeshift throttle-by-wire system to put on a golf car, using items I either had laying around, or were relatively inexpensive.
 This repo is not licensed, purposely. 
 
 I will preface this with stating that I am new to coding. Ultimately, this program was initiated in order to learn. 
